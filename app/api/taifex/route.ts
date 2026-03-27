@@ -14,38 +14,38 @@ export async function GET() {
         "Content-Type": "application/json",
         "Referer": "https://mis.taifex.com.tw/futures/RegularSession/EquityIndices/Futures/",
         "Origin": "https://mis.taifex.com.tw",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       },
       body: JSON.stringify({
         MarketType: "0",
-        SymbolType: "F",
+        SymbolType: "F",      // F = 期貨
         KindID: "1",
-        CID: "TXF",
+        CID: "TX",            // 關鍵！改成 TX 才能抓到真正的台指期
         ExpireMonth: "",
         RowSize: "全部",
         PageNo: "",
         SortColumn: "",
-        AscDesc: "A",
+        AscDesc: "A"
       }),
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const json = await response.json();
     const list = json.RtData?.QuoteList || [];
 
+    // 找第一筆真正的「台指期」合約（排除現貨）
     let d = null;
     for (let item of list) {
-      if (item.CLastPrice && item.CLastPrice !== "-") {
+      if (item.CLastPrice && item.CLastPrice !== "-" && 
+          (item.CContractName?.includes("TX") || item.DispCName?.includes("TX"))) {
         d = item;
         break;
       }
     }
 
     if (!d) {
-      return NextResponse.json({ ok: false, reason: "no data" }, { headers, status: 200 });
+      return NextResponse.json({ ok: false, reason: "no futures data" }, { headers, status: 200 });
     }
 
     const price = parseFloat(d.CLastPrice);
@@ -58,28 +58,13 @@ export async function GET() {
       price,
       change,
       changePct: parseFloat(changePct.toFixed(2)),
-      contractName: d.CContractName || d.DispCName || "",
+      contractName: d.CContractName || d.DispCName || "台指期近月",
       updateTime: d.CTime || "",
     }, { headers });
 
   } catch (e) {
-    // ← 這裡修正了！
     const errorMsg = e instanceof Error ? e.message : String(e);
     console.error("TAIFEX API 錯誤:", e);
-    return NextResponse.json(
-      { ok: false, reason: errorMsg },
-      { headers, status: 500 }
-    );
+    return NextResponse.json({ ok: false, reason: errorMsg }, { headers, status: 500 });
   }
-}
-
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
 }
