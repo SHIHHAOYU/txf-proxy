@@ -18,9 +18,9 @@ export async function GET() {
       },
       body: JSON.stringify({
         MarketType: "0",
-        SymbolType: "F",      // F = 期貨
+        SymbolType: "F",
         KindID: "1",
-        CID: "TX",            // 關鍵！改成 TX 才能抓到真正的台指期
+        CID: "TXF",           // ← 改回 TXF 最穩定
         ExpireMonth: "",
         RowSize: "全部",
         PageNo: "",
@@ -34,18 +34,18 @@ export async function GET() {
     const json = await response.json();
     const list = json.RtData?.QuoteList || [];
 
-    // 找第一筆真正的「台指期」合約（排除現貨）
+    // 找第一筆真正的台指期近月（有價格且名稱含 TX 或期貨）
     let d = null;
     for (let item of list) {
-      if (item.CLastPrice && item.CLastPrice !== "-" && 
-          (item.CContractName?.includes("TX") || item.DispCName?.includes("TX"))) {
+      if (item.CLastPrice && item.CLastPrice !== "-" &&
+          (item.CContractName?.includes("TX") || item.DispCName?.includes("TX") || item.CContractName?.includes("期"))) {
         d = item;
         break;
       }
     }
 
     if (!d) {
-      return NextResponse.json({ ok: false, reason: "no futures data" }, { headers, status: 200 });
+      return NextResponse.json({ ok: false, reason: "no futures data found", listLength: list.length }, { headers, status: 200 });
     }
 
     const price = parseFloat(d.CLastPrice);
@@ -58,13 +58,9 @@ export async function GET() {
       price,
       change,
       changePct: parseFloat(changePct.toFixed(2)),
-      contractName: d.CContractName || d.DispCName || "台指期近月",
+      contractName: d.CContractName || d.DispCName || "期 台股指數近月",
       updateTime: d.CTime || "",
     }, { headers });
 
   } catch (e) {
     const errorMsg = e instanceof Error ? e.message : String(e);
-    console.error("TAIFEX API 錯誤:", e);
-    return NextResponse.json({ ok: false, reason: errorMsg }, { headers, status: 500 });
-  }
-}
