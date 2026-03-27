@@ -34,12 +34,8 @@ export async function GET() {
     const json = await response.json();
     const list = json.RtData?.QuoteList || [];
 
-    // 最可靠的抓法：找第一筆有價格的期貨合約（通常就是近月台指期）
-    let d = list.find(item => 
-      item.CLastPrice && 
-      item.CLastPrice !== "-" && 
-      item.CContractName?.includes("TX")
-    ) || list.find(item => item.CLastPrice && item.CLastPrice !== "-");
+    // 抓第一筆有價格的台指期近月（早盤/夜盤都會正確）
+    let d = list.find(item => item.CLastPrice && item.CLastPrice !== "-");
 
     if (!d) {
       return NextResponse.json({ ok: false, reason: "no futures data" }, { headers, status: 200 });
@@ -55,8 +51,9 @@ export async function GET() {
       price,
       change,
       changePct: parseFloat(changePct.toFixed(2)),
-      contractName: "期 台股指數近月",   // 固定顯示你想要的名稱
+      contractName: "期 台股指數近月",
       updateTime: d.CTime || "",
+      session: "早盤", // 之後 Widget 會根據時間自動判斷
     }, { headers });
 
   } catch (e) {
