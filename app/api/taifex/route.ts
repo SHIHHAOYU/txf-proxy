@@ -34,11 +34,15 @@ export async function GET() {
     const json = await response.json();
     const list = json.RtData?.QuoteList || [];
 
-    // 最寬鬆的抓法：只要有價格就拿第一筆（通常就是近月台指期）
-    let d = list.find(item => item.CLastPrice && item.CLastPrice !== "-");
+    // 最可靠的抓法：找第一筆有價格的期貨合約（通常就是近月台指期）
+    let d = list.find(item => 
+      item.CLastPrice && 
+      item.CLastPrice !== "-" && 
+      item.CContractName?.includes("TX")
+    ) || list.find(item => item.CLastPrice && item.CLastPrice !== "-");
 
     if (!d) {
-      return NextResponse.json({ ok: false, reason: "no data in list", listLength: list.length }, { headers, status: 200 });
+      return NextResponse.json({ ok: false, reason: "no futures data" }, { headers, status: 200 });
     }
 
     const price = parseFloat(d.CLastPrice);
@@ -51,8 +55,8 @@ export async function GET() {
       price,
       change,
       changePct: parseFloat(changePct.toFixed(2)),
-      contractName: d.CContractName || d.DispCName || "期 台股指數近月",
-      updateTime: d.CTime || new Date().toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+      contractName: "期 台股指數近月",   // 固定顯示你想要的名稱
+      updateTime: d.CTime || "",
     }, { headers });
 
   } catch (e) {
