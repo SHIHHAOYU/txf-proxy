@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  // CORS 設定
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -64,15 +63,16 @@ export async function GET() {
     }, { headers });
 
   } catch (e) {
+    // ← 這裡修正了！
+    const errorMsg = e instanceof Error ? e.message : String(e);
     console.error("TAIFEX API 錯誤:", e);
     return NextResponse.json(
-      { ok: false, reason: e.message },
+      { ok: false, reason: errorMsg },
       { headers, status: 500 }
     );
   }
 }
 
-// 處理 OPTIONS 請求（CORS）
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
@@ -83,4 +83,3 @@ export async function OPTIONS() {
     },
   });
 }
-// 已從手機修正
